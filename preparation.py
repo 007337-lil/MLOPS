@@ -2,6 +2,18 @@ import pandas as pd
 import numpy as np
 import re
 import unicodedata
+import datetime
+
+
+day_order = [
+    "Monday",
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
+]
 
 
 def normalize_columns(columns):
@@ -47,7 +59,7 @@ def columns_selection(df):
 
 def add_holidays(df):
     """
-    Add holidays from the french scholar calendar.
+    Adds holidays from the french scholar calendar.
 
     Parameters:
     - df (pd.DataFrame): The input DataFrame.
@@ -95,7 +107,7 @@ def add_holidays(df):
 
 def add_bank_holidays(df):
     """
-    Add french bank holidays.
+    Adds french bank holidays.
     
     Parameters:
     - df (pd.DataFrame): The input DataFrame.
@@ -109,6 +121,48 @@ def add_bank_holidays(df):
     )
     df_ferie['date'] = pd.to_datetime(df_ferie['date'])
     df['top_fer'] = df.index.normalize().isin(df_ferie['date']).astype(int)
+
+    return df
+
+
+def add_temp(df):
+    """
+    Adds minimal, maximal and mean tempratures in France since 2016
+    
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame.
+
+    Return:
+    - pd.DataFrame: A DataFrame containing temperatures.
+    """
+    temp = pd.read_csv(
+        'DATA/temperature-quotidienne-regionale.csv',
+        sep = ';'
+    )
+
+    df['dat'] = pd.to_datetime(df['dat']).dt.normalize()
+    temp.columns = normalize_columns(temp.columns)
+    temp_agg = (
+        temp
+        .groupby(['dat'])
+        .agg({
+            'tmi': 'mean',
+            'tma': 'mean',
+            'tmo': 'mean'
+        })
+        .sort_values(by='dat')
+        .reset_index()
+    )
+    temp_agg['dat'] = pd.to_datetime(temp_agg['dat']).dt.normalize()
+    temp_agg[['tmi', 'tma', 'tmo']] = temp_agg[['tmi', 'tma', 'tmo']].round(1)
+
+    df = df.merge(
+        temp_agg[['dat', 'tmi', 'tma', 'tmo']],
+        on='dat',
+        how='left'
+    )
+
+    df[['tmi', 'tma', 'tmo']] = df[['tmi', 'tma', 'tmo']].ffill()
 
     return df
 
@@ -131,15 +185,23 @@ def data_cleaning(df):
     df.columns = normalize_columns(df.columns)
     df = columns_selection(df).copy()
     
+    
     df['timestamp'] = pd.to_datetime(df['dat'] + ' ' + df['heu'], format='%d/%m/%Y %H:%M')
     df['dat'] = pd.to_datetime(df['dat'], format='%d/%m/%Y').dt.date
     df['heu'] = pd.to_datetime(df['heu'], format='%H:%M').dt.time
+
+    df['heu_float'] = df['heu'].apply(lambda t: t.hour + t.minute/60)
     df = df.set_index('timestamp').sort_index()
 
     df = df.loc[df['con_bru_ele_rte'].notna()]
 
     df['day'] = df.index.day
     df['day_name'] = df.index.day_name()
+    df['day_name'] = pd.Categorical(
+        df['day_name'], 
+        categories=day_order, 
+        ordered=True
+    )
     df['week'] = df.index.isocalendar().week
     max_week = 5
     df['week_of_month'] = ((df.index.day - 1) // 7) + 1
@@ -151,18 +213,23 @@ def data_cleaning(df):
 
     df = add_holidays(df)
     df = add_bank_holidays(df)
+    df = add_temp(df)
 
-    cols = [c for c in df.columns if c not in ['con_bru_gaz_tot', 'con_bru_ele_rte']]  # toutes sauf C et D
-    new_order = cols + ['con_bru_gaz_tot', 'con_bru_ele_rte']  # mettre C et D à la fin
+    cols = [c for c in df.columns if c not in ['con_bru_gaz_tot', 'con_bru_ele_rte']]
+    new_order = cols + ['con_bru_gaz_tot', 'con_bru_ele_rte'] 
     df = df[new_order]  
 
-
-
+    df = df.drop_duplicates(
+        subset=['dat', 'heu'],
+        keep='first'
+    )
+    
     return df
 
 def create_dfs(df):
     df_gaz = df.drop(columns=['con_bru_ele_rte'])
-    df_gaz = df_gaz.loc[df_gaz['con_bru_gaz_tot'].notna()]
+    df_gaz['con_bru_gaz_tot'] = df_gaz['con_bru_gaz_tot'].bfill()
+    df_gaz = df_gaz[df_gaz['heu_float'].isin([i for i in range(24)])]
     
     df_ele = df.drop(columns=['con_bru_gaz_tot'])
     df_ele = df_ele.loc[df_ele['con_bru_ele_rte'].notna()]
