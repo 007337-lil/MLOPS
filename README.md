@@ -5,7 +5,7 @@ Le dépôt contient l'ensemble des données, scripts python et notebooks créés
 
 Le sujet porte sur la prévision de la consommation quotidienne d'électricité et de gaz en France.
 
-L'ensembles des données utilisées (dossier DATA), proviennent du site data.gouvgit
+L'ensembles des données utilisées (dossier DATA), proviennent du site data.gouv
 
 Auteurs: 
 - @007337-lil : Lilou Masson
