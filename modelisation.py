@@ -21,7 +21,7 @@ def test_model(df, features, debut_test, model_name, params={}):
     :param params: Description
     """
     df = df.loc[df['year'] >= 2016]
-    X, y = df[features], df[['con_bru_gaz_tot']]
+    X, y = df[features], df.iloc[:, -1]
     X_train = X.loc[X.index.normalize() < pd.to_datetime(debut_test, format='%d/%m/%Y')]
     X_test = X.loc[X.index.normalize() >= pd.to_datetime(debut_test, format='%d/%m/%Y')]
     y_train = y.loc[y.index.normalize() < pd.to_datetime(debut_test, format='%d/%m/%Y')]
@@ -29,7 +29,9 @@ def test_model(df, features, debut_test, model_name, params={}):
 
     if model_name == 'xgboost':
         model = XGBRegressor(
-            random_state = 42
+            random_state = 42,
+            eval_metric = 'rmse',
+            enable_categorical = True
         )
 
     model.set_params(**params)
@@ -41,10 +43,10 @@ def test_model(df, features, debut_test, model_name, params={}):
     mae = mean_absolute_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
-    importances = pd.Series(model.feature_importances_, index=features)
+    importances = pd.Series(model.feature_importances_.round(3), index=features)
     importances = importances.sort_values(ascending=False)
 
-    df_verif = y_test.copy()
+    df_verif = pd.DataFrame(y_test)
     df_verif['y_pred'] = y_pred
 
     return rmse, mae, r2, importances, df_verif
@@ -61,7 +63,7 @@ def search_params(df, features, debut_test, model_name, param_grid):
     :param params: Description
     """
     df = df.loc[df['year'] >= 2016]
-    X, y = df[features], df[['con_bru_gaz_tot']]
+    X, y = df[features], df.iloc[:, -1]
     X_train = X.loc[X.index.normalize() < pd.to_datetime(debut_test, format='%d/%m/%Y')]
     X_test = X.loc[X.index.normalize() >= pd.to_datetime(debut_test, format='%d/%m/%Y')]
     y_train = y.loc[y.index.normalize() < pd.to_datetime(debut_test, format='%d/%m/%Y')]
@@ -72,7 +74,8 @@ def search_params(df, features, debut_test, model_name, param_grid):
     if model_name == 'xgboost':
         model = XGBRegressor(
             random_state = 42,
-            eval_metric = 'rmse'
+            eval_metric = 'rmse',
+            enable_categorical = True
         )
 
     grid = GridSearchCV(

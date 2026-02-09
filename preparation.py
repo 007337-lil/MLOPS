@@ -228,6 +228,7 @@ def data_cleaning(df):
         ordered=True
     )
     df['year'] = df.index.year
+    
 
     df = df.drop_duplicates(
         subset=['dat', 'heu'],
@@ -251,6 +252,7 @@ def create_dfs(df):
     df_gaz = df.drop(columns=['con_bru_ele_rte'])
     df_gaz['con_bru_gaz_tot'] = df_gaz['con_bru_gaz_tot'].bfill()
     df_gaz = df_gaz[df_gaz['heu_float'].isin([i for i in range(24)])]
+    
     
     df_ele = df.drop(columns=['con_bru_gaz_tot'])
     df_ele = df_ele.loc[df_ele['con_bru_ele_rte'].notna()]
