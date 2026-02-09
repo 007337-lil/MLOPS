@@ -229,18 +229,21 @@ def data_cleaning(df):
     )
     df['year'] = df.index.year
 
-    df = add_holidays(df)
-    df = add_bank_holidays(df)
-    df = add_temp(df)
-
-    cols = [c for c in df.columns if c not in ['con_bru_gaz_tot', 'con_bru_ele_rte']]
-    new_order = cols + ['con_bru_gaz_tot', 'con_bru_ele_rte'] 
-    df = df[new_order]  
-
     df = df.drop_duplicates(
         subset=['dat', 'heu'],
         keep='first'
     )
+    timestamps = df.index
+
+    df = add_holidays(df)
+    df = add_bank_holidays(df)
+    df = add_temp(df)
+
+    df = df.set_index(timestamps)
+
+    cols = [c for c in df.columns if c not in ['con_bru_gaz_tot', 'con_bru_ele_rte']]
+    new_order = cols + ['con_bru_gaz_tot', 'con_bru_ele_rte'] 
+    df = df[new_order]  
     
     return df
 
