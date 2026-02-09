@@ -15,6 +15,12 @@ day_order = [
     'Sunday'
 ]
 
+month_order = [
+    "January", "February", "March", "April",
+    "May", "June", "July", "August",
+    "September", "October", "November", "December"
+]
+
 
 def normalize_columns(columns):
     """
@@ -191,6 +197,8 @@ def data_cleaning(df):
     df['heu'] = pd.to_datetime(df['heu'], format='%H:%M').dt.time
 
     df['heu_float'] = df['heu'].apply(lambda t: t.hour + t.minute/60)
+    df["heu_sin"] = np.sin(2 * np.pi * df["heu_float"] / 24)
+    df["heu_cos"] = np.cos(2 * np.pi * df["heu_float"] / 24)
     df = df.set_index('timestamp').sort_index()
 
     df = df.loc[df['con_bru_ele_rte'].notna()]
@@ -202,6 +210,11 @@ def data_cleaning(df):
         categories=day_order, 
         ordered=True
     )
+    df['is_weekend'] = np.where(
+        df['day_name'].isin(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
+        0,
+        1
+    )
     df['week'] = df.index.isocalendar().week
     max_week = 5
     df['week_of_month'] = ((df.index.day - 1) // 7) + 1
@@ -209,6 +222,11 @@ def data_cleaning(df):
     df['week_of_month_cos'] = np.cos(2 * np.pi * df['week_of_month'] / max_week)
     df['month'] = df.index.month
     df['month_name'] = df.index.month_name()
+    df['month_name'] = pd.Categorical(
+        df['month_name'], 
+        categories=month_order, 
+        ordered=True
+    )
     df['year'] = df.index.year
 
     df = add_holidays(df)
